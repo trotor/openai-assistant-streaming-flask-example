@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Assistant Stream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    backgroundColor: {
+                        'code': '#f0f0f0',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100">
+    <div class="max-w-4xl mx-auto p-6">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Assistant Stream Chat</h1>
+        <div id="chat" class="flex flex-col h-[80vh]">
+            <div id="messages" class="flex-grow overflow-y-auto border border-gray-300 rounded-lg p-6 mb-4 bg-white shadow-sm"></div>
+            <div class="flex gap-3">
+                <input 
+                    type="text" 
+                    id="userInput" 
+                    placeholder="Type your message..." 
+                    onkeypress="if(event.key === 'Enter') sendMessage()"
+                    class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                <button 
+                    onclick="sendMessage()" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isProcessing = false;
+
+        function createMessageBubble(message, isUser = false) {
+            return `
+                <div class="flex ${isUser ? 'justify-end' : 'justify-start'} mb-3">
+                    <div class="${isUser ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-lg py-2 px-4 max-w-[70%] break-words">
+                        <p class="text-sm">${message}</p>
+                    </div>
+                </div>`;
+        }
+
+        function createResponseContainer() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex justify-start mb-3';
+            const container = document.createElement('div');
+            container.className = 'bg-gray-200 rounded-lg py-2 px-4 max-w-[70%] break-words';
+            
+            container.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                </div>`;
+            
+            wrapper.appendChild(container);
+            return { wrapper, container };
+        }
+
+        async function handleMessage(message, messagesDiv = null) {
+            if (isProcessing) return;
+            
+            if (!messagesDiv) {
+                messagesDiv = document.getElementById('messages');
+            }
+            
+            isProcessing = true;
+            updateButtonStates();
+            
+            messagesDiv.innerHTML += createMessageBubble(message, true);
+            
+            const { wrapper, container } = createResponseContainer();
+            messagesDiv.appendChild(wrapper);
+            
+            if (messagesDiv) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+            
+            try {
+                const response = await fetch(`/assistant/stream?message=${encodeURIComponent(message)}`, {
+                    method: 'GET'
+                });
+                container.innerHTML = '';
+                await readStream(response, container, messagesDiv);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                isProcessing = false;
+                updateButtonStates();
+            }
+        }
+
+        function updateButtonStates() {
+            const sendButton = document.querySelector('button[onclick="sendMessage()"]');
+            const input = document.getElementById('userInput');
+            
+            if (isProcessing) {
+                sendButton.disabled = true;
+                input.disabled = true;
+                
+                sendButton.classList.add('opacity-50', 'cursor-not-allowed');
+                input.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                sendButton.disabled = false;
+                input.disabled = false;
+                
+                sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                input.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        async function sendMessage() {
+            if (isProcessing) return;
+            
+            const input = document.getElementById('userInput');
+            const message = input.value;
+            await handleMessage(message);
+            input.value = '';
+        }
+
+        async function readStream(response, responseContainer, messagesDiv = null) {
+            const reader = response.body.getReader();
+            let currentBlock = document.createElement('div');
+            currentBlock.className = 'text-sm';
+            responseContainer.appendChild(currentBlock);
+            
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const text = new TextDecoder().decode(value);
+                    currentBlock.textContent += text;
+                    
+                    if (messagesDiv) {
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html> 
