@@ -2,6 +2,8 @@
 
 This project demonstrates how to implement streaming responses from OpenAI's Assistant API using Flask. While there are many examples of streaming with Chat Completions API, the Assistant API works differently and requires a different implementation approach.
 
+![Screenshot of the chat interface](assets/screenshot1.jpeg)
+
 ## Why This Project Exists
 
 The OpenAI Assistant API is powerful but implementing streaming with it can be tricky. Most examples online show streaming with the Chat Completions API, but the Assistant API:
