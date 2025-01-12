@@ -39,8 +39,7 @@ On Windows:
 
 On macOS/Linux:
 
-```source venv/bin/activate
-```
+```source venv/bin/activate```
 
     ```bash
     python -m venv venv
